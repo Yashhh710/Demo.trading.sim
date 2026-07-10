@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="https://img.icons8.com/?size=100&id=eoNUdwN5gLHi&format=png&color=000000" type="image/x-icon">
+<title>Loading...</title>
+<style>
+  :root{
+    --bg:#000000;
+    --card:#0a0f0a;
+    --border:#1f2b1f;
+    --green:#4ade23;
+    --green-soft:#8de07a;
+    --text:#e8ede8;
+    --text-dim:#a9b3a9;
+  }
+
+  *{ box-sizing:border-box; }
+
+  html,body{
+    margin:0;
+    padding:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Segoe UI', Arial, sans-serif;
+    height:100vh;
+    height:100dvh;
+    width:100vw;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar{
+    display:none;
+    width:0;
+    height:0;
+  }
+
+  html{
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+  }
+
+  /* ---------- Video intro ---------- */
+  .intro{
+    position:fixed;
+    inset:0;
+    background:#000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    opacity:1;
+    transition:opacity 0.9s ease;
+  }
+
+  .intro.fade-out{
+    opacity:0;
+    pointer-events:none;
+  }
+
+  .intro video{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    background:#000;
+    pointer-events: none; /* Prevents hovering/clicking the video */
+  }
+
+  .skip-btn{
+    position:absolute;
+    bottom:28px;
+    right:28px;
+    background:rgba(255,255,255,0.06);
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    font-size:0.8rem;
+    letter-spacing:1px;
+    padding:8px 16px;
+    border-radius:20px;
+    cursor:pointer;
+    font-family:'Segoe UI', Arial, sans-serif;
+    transition:background 0.2s ease, color 0.2s ease;
+  }
+
+  .skip-btn:hover{
+    background:rgba(74,222,35,0.12);
+    color:var(--green-soft);
+    border-color:var(--green);
+  }
+
+  /* ---------- Disclaimer reveal ---------- */
+  .content{
+    opacity:0;
+    transform:translateY(18px) scale(0.98);
+    transition:opacity 1s ease, transform 1s ease;
+    width:100vw;
+    height:100vh;
+    height:100dvh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+
+  .content.reveal{
+    opacity:1;
+    transform:translateY(0) scale(1);
+  }
+
+  .card-scale{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transform-origin:center center;
+  }
+
+  .card{
+    width:600px;
+    max-width:90vw;
+    margin:0;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:36px 40px 30px;
+    text-align:center;
+    box-shadow:0 0 60px rgba(74,222,35,0.05);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+
+  .logo-wrap{
+    margin-bottom:20px;
+  }
+
+  .logo{
+    width:160px;
+    height:auto;
+    object-fit:contain;
+  }
+
+  .heading-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+    margin-bottom:14px;
+  }
+
+  .heading-row .line{
+    height:1px;
+    flex:1;
+    max-width:110px;
+    background:linear-gradient(90deg, transparent, var(--green), transparent);
+    opacity:0.6;
+  }
+
+  .heading-row h1{
+    font-size:2.3rem;
+    letter-spacing:3px;
+    margin:0;
+    font-weight:800;
+    color:#f2f5f2;
+  }
+
+  .subheading{
+    font-size:1rem;
+    font-weight:600;
+    letter-spacing:0.5px;
+    color:var(--text);
+    margin-bottom:26px;
+  }
+
+  .subheading .accent{
+    color:var(--green);
+  }
+
+  .info-box{
+    background:#070a07;
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:clamp(10px, 1.8vh, 22px) clamp(14px, 2.4vw, 24px);
+    text-align:left;
+    margin-bottom:clamp(10px, 2vh, 26px);
+    width:100%;
+  }
+
+  .info-item{
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+    padding:clamp(6px, 1vh, 12px) 0;
+  }
+
+  .info-item + .info-item{
+    border-top:1px solid var(--border);
+  }
+
+  .icon{
+    flex-shrink:0;
+    width:clamp(20px, 2.8vh, 26px);
+    height:clamp(20px, 2.8vh, 26px);
+    border:1.5px solid var(--green);
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--green);
+    font-size:0.85rem;
+    margin-top:2px;
+  }
+
+  .icon.shield{
+    border-radius:6px 6px 40% 40%;
+    background:rgba(74,222,35,0.08);
+  }
+
+  .icon.warn{
+    border:none;
+  }
+
+  .info-item p{
+    margin:0;
+    line-height:1.4;
+    font-size:clamp(0.75rem, 1.6vh, 0.98rem);
+    color:var(--text-dim);
+  }
+
+  .info-item p em{
+    font-style:italic;
+    color:var(--green-soft);
+  }
+
+  .info-item p strong{
+    color:var(--green-soft);
+    font-weight:700;
+  }
+
+  .tagline{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    font-style:italic;
+    color:var(--text-dim);
+    margin-bottom:clamp(10px, 2vh, 26px);
+    font-size:clamp(0.75rem, 1.6vh, 0.98rem);
+  }
+
+  .tagline .tick{
+    width:clamp(18px, 2.4vh, 22px);
+    height:clamp(18px, 2.4vh, 22px);
+    border:1.5px solid var(--green);
+    border-radius:6px 6px 40% 40%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--green);
+    font-size:0.8rem;
+  }
+
+  .cta{
+    display:inline-block;
+    width:100%;
+    max-width:340px;
+    background:rgba(74,222,35,0.06);
+    border:1.5px solid var(--green);
+    border-radius:10px;
+    padding:clamp(9px, 1.6vh, 14px) 20px clamp(7px, 1.4vh, 12px);
+    cursor:pointer;
+    transition:background 0.2s ease, transform 0.15s ease;
+  }
+
+  .cta:hover{
+    background:rgba(74,222,35,0.14);
+    transform:translateY(-1px);
+  }
+
+  .cta:active{
+    transform:translateY(0);
+  }
+
+  .cta .main{
+    display:block;
+    font-weight:800;
+    font-size:1.05rem;
+    letter-spacing:1px;
+    color:var(--green-soft);
+  }
+
+  .cta .sub{
+    display:block;
+    font-size:0.72rem;
+    letter-spacing:2px;
+    color:var(--green);
+    margin-top:2px;
+  }
+
+  @media (max-width:480px){
+    .heading-row h1{ letter-spacing:2px; }
+  }
+
+  /* ---------- Slideshow ---------- */
+  #slideshow-container {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .slide-img {
+    width: 100vw;
+    height: 85vh; /* Forces empty black space top and bottom */
+    /* Removed object-fit to allow it to connect strictly to left and right while keeping the top/bottom gap */
+    opacity: 0;
+    transition: opacity 1s ease;
+    position: absolute;
+    pointer-events: none;
+  }
+  .slide-img.active {
+    opacity: 1;
+  }
+  #lobby-img {
+    height: 100vh; /* Make only the last image full screen */
+    object-fit: cover;
+  }
+  #start-video {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    z-index: 400;
+    display: none;
+  }
+  #start-btn {
+    position: absolute;
+    bottom: 15vh;
+    background: rgba(74,222,35,0.1);
+    border: 2px solid #4ade23;
+    border-radius: 12px;
+    padding: 15px 40px;
+    color: #8de07a;
+    font-size: 1.2rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    cursor: pointer;
+    z-index: 300;
+    display: none;
+    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+    box-shadow: 0 0 20px rgba(74,222,35,0.2);
+  }
+  #start-btn:hover {
+    background: rgba(74,222,35,0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 0 30px rgba(74,222,35,0.4);
+  }
+</style>
+</head>
+<body>
+
+  <div class="intro" id="intro">
+    <video id="introVideo" autoplay muted playsinline style="pointer-events: none;">
+      <source src="../loading-intro/logo.mp4" type="video/mp4">
+    </video>
+    <button class="skip-btn" id="skipBtn">SKIP</button>
+  </div>
+
+  <div class="content" id="content">
+  <div class="card">
+
+    <div class="logo-wrap">
+      <img class="logo" src="../loading-intro/logo.png" alt="Logo">
+    </div>
+
+    <div class="heading-row">
+      <span class="line"></span>
+      <h1>DISCLAIMER</h1>
+      <span class="line"></span>
+    </div>
+
+    <p class="subheading">THIS IS JUST A <span class="accent">DEMO</span> TRADING SIMULATOR.</p>
+
+    <div class="info-box">
+      <div class="info-item">
+        <span class="icon">@</span>
+        <p>for better experience use full screen mode <em>press f11 for window</em>&<em>command + shift + f for mac</em></p>
+      </div>
+      <div class="info-item">
+        <span class="icon">i</span>
+        <p>This is a simulated environment for <em>educational</em> and <em>entertainment</em> purposes only.</p>
+      </div>
+      <div class="info-item">
+        <span class="icon shield">&#10005;</span>
+        <p><strong>No real money & real data</strong> is involved. Virtual trading, virtual funds, and just make for cool frontend.</p>
+      </div>
+      <div class="info-item">
+        <span class="icon warn">&#9888;</span>
+        <p>Past performance in this simulator <em>does not guarantee</em> real future results in the financial markets.</p>
+      </div>
+    </div>
+
+    <p class="tagline">
+      <span class="tick">&#10003;</span>
+      Make sure you play that on full screen.
+    </p>
+
+    <button class="cta" onclick="startSlideshow()">
+      <span class="main">I UNDERSTAND</span>
+      <span class="sub">CONTINUE</span>
+    </button>
+
+  </div>
+  </div>
+
+  <div id="slideshow-container">
+    <img class="slide-img" src="luffy.png" alt="Luffy">
+    <img class="slide-img" src="nami.png" alt="Nami">
+    <img class="slide-img" src="naruto.png" alt="Naruto">
+    <img class="slide-img" src="sasuke.png" alt="Sasuke">
+    <img class="slide-img" src="sakura.png" alt="Sakura">
+    <img class="slide-img" id="lobby-img" src="lobbyimg.png" alt="Lobby">
+    <button id="start-btn" onclick="playStartVideo()">START SIMULATOR</button>
+  </div>
+  
+  <video id="start-video" muted playsinline>
+    <source src="main.mp4" type="video/mp4">
+  </video>
+
+  <script>
+    const intro = document.getElementById('intro');
+    const video = document.getElementById('introVideo');
+    const content = document.getElementById('content');
+    const skipBtn = document.getElementById('skipBtn');
+    let transitioned = false;
+
+    function goToDisclaimer(){
+      if (transitioned) return;
+      transitioned = true;
+      intro.classList.add('fade-out');
+      content.classList.add('reveal');
+      setTimeout(() => { intro.style.display = 'none'; }, 900);
+    }
+
+    video.addEventListener('ended', goToDisclaimer);
+    skipBtn.addEventListener('click', goToDisclaimer);
+
+    // Fallback: if video fails to load, skip straight to disclaimer after a short delay
+    video.addEventListener('error', () => setTimeout(goToDisclaimer, 300));
+
+    // Slideshow Logic
+    function startSlideshow() {
+      // Hide the disclaimer card and background
+      document.getElementById('content').style.display = 'none';
+      
+      const container = document.getElementById('slideshow-container');
+      container.style.display = 'flex';
+      
+      const slides = document.querySelectorAll('.slide-img');
+      let currentSlide = 0;
+      
+      function showNextSlide() {
+        // Fade out previous slide
+        if (currentSlide > 0) {
+           slides[currentSlide - 1].classList.remove('active');
+        }
+        
+        // Show next slide or finish
+        if (currentSlide < slides.length) {
+           slides[currentSlide].classList.add('active');
+           
+           if (currentSlide === slides.length - 1) {
+              // This is the final slide (Lobby image)
+              // Wait for the fade-in, then show the START button
+              setTimeout(() => {
+                 document.getElementById('start-btn').style.display = 'block';
+              }, 1000); // 1 second delay matches the CSS fade transition
+           } else {
+              // Proceed to next slide automatically
+              currentSlide++;
+              setTimeout(showNextSlide, 5000); // 5 seconds per image
+           }
+        }
+      }
+      
+      // Start the sequence immediately
+      setTimeout(showNextSlide, 100);
+    }
+
+    function playStartVideo() {
+      // Hide the slideshow and button
+      document.getElementById('start-btn').style.display = 'none';
+      document.getElementById('slideshow-container').style.display = 'none';
+      
+      // Play the main video
+      const startVideo = document.getElementById('start-video');
+      startVideo.style.display = 'block';
+      startVideo.play().catch(e => console.error("Video play failed:", e));
+      
+      // Redirect when video ends
+      startVideo.addEventListener('ended', () => {
+         sessionStorage.setItem('introSeen', 'true');
+         window.location.href = '../index.html';
+      });
+    }
+  </script>
+
+</body>
+</html>

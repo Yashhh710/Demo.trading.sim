@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="https://img.icons8.com/?size=100&id=hfJnS1jLGl0s&format=png&color=000000" type="image/x-icon">
+    <title>AI Stock Advisor HQ</title>
+    <script>
+        // Redirect to the intro sequence if this is the first time loading the dashboard in this session
+        if (!sessionStorage.getItem('introSeen')) {
+            window.location.replace('loading-intro/index.html');
+        }
+    </script>
+    <style>
+        body, html {
+            margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
+        }
+
+        /* Full-screen background sequence */
+        #bg-sequence {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-size: cover; background-position: center; z-index: -1;
+            transform-origin: center center; background-color: #000;
+            background-image: url('models/Day/main/0001.jpg');
+        }
+
+        /* Loading Overlay */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8); color: white;
+            display: flex; justify-content: center; align-items: center;
+            z-index: 10000; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease; font-family: monospace;
+        }
+        #loader.active { opacity: 1; pointer-events: all; }
+
+        /* --- CHARACTER VIDEO / IMAGE OVERLAY --- */
+        #char-video-transition, #char-video-main, #char-image {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: 0; display: none;
+            background-size: cover; background-position: center;
+        }
+        #char-video-transition.visible, #char-video-main.visible { display: block; }
+
+        /* --- TRANSPARENT OVERLAY ON TOP OF VIDEO --- */
+        #video-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: transparent; z-index: 1; display: none;
+            pointer-events: auto; cursor: default;
+        }
+        #video-overlay.visible { display: block; }
+
+        /* --- CHARACTER HOTSPOTS (invisible boxes over each character) --- */
+        .char-hotspots {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 5; pointer-events: none;
+        }
+        .char-hotspot {
+            position: absolute; cursor: pointer; pointer-events: all;
+            background: transparent;
+        }
+        .char-hotspot::after {
+            content: attr(data-name);
+            position: absolute; bottom: 100%; left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background: rgba(0, 0, 0, 0.78); color: #fff;
+            padding: 4px 12px; border-radius: 6px;
+            font-family: monospace; font-size: 13px; font-weight: 700;
+            white-space: nowrap; opacity: 0; pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .char-hotspot:hover::after { opacity: 1; }
+        .char-hotspot:hover { background: transparent; }
+        
+        /* Hide name tags in night mode or when character is active */
+        .char-hotspots.hidden-night .char-hotspot::after,
+        .char-hotspots.hidden-night .stocks-hotspot::after,
+        .char-hotspots.character-active .char-hotspot::after,
+        .char-hotspots.character-active .stocks-hotspot::after {
+            display: none !important;
+        }
+
+        /* --- STOCKS HOTSPOT (big invisible box with hover name tag) --- */
+        .stocks-hotspot {
+            position: absolute; cursor: pointer; pointer-events: all;
+            background: transparent;
+        }
+        .stocks-hotspot::after {
+            content: attr(data-name);
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.78); color: #fff;
+            padding: 6px 16px; border-radius: 6px;
+            font-family: monospace; font-size: 13px; font-weight: 700;
+            white-space: nowrap; opacity: 0; pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .stocks-hotspot:hover::after { opacity: 1; }
+
+        /* --- BLACK TRANSITION SCREEN --- */
+        #black-transition {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 20; opacity: 0; pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+        #black-transition.active { opacity: 1; pointer-events: all; }
+
+
+        /* --- BACK BUTTON (premium cinematic edge fade) --- */
+        #back-button {
+            position: fixed; left: 0; bottom: 40px; z-index: 30;
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.7) 80px, rgba(0, 0, 0, 0.3) 200px, rgba(0, 0, 0, 0) 400px);
+            color: #ffffff; border: none; outline: none; box-shadow: none;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; 
+            font-size: 14px; font-weight: 500; letter-spacing: 0.5px;
+            padding: 0; margin: 0; width: 450px; height: 50px;
+            display: none; opacity: 0; transition: opacity 0.3s ease;
+            cursor: pointer; align-items: center; justify-content: flex-start;
+            padding-left: 40px; gap: 10px;
+            background-attachment: fixed;
+        }
+        #back-button::before {
+            content: '← '; font-size: 18px; font-weight: 300; display: inline;
+        }
+        #back-button.visible { display: flex; opacity: 1; }
+        #back-button:hover { background: linear-gradient(90deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.75) 80px, rgba(0, 0, 0, 0.35) 200px, rgba(0, 0, 0, 0) 400px); }
+        #back-button:active { opacity: 0.85; }
+
+        /* --- GLOW STONE CSS --- */
+        .container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; align-items: center; cursor: pointer; user-select: none; perspective: 1000px; padding: 20px; }
+        .container input { position: absolute; opacity: 0; }
+        .simple-text { position: absolute; bottom: -5px; color: white; font-size: 12pt; font-weight: 900; font-family: monospace; text-shadow: 2px 2px #000; }
+        .lamp-block { position: relative; width: 60px; height: 60px; transform-style: preserve-3d; transform: rotateX(-30deg) rotateY(45deg); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .face { position: absolute; width: 60px; height: 60px; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); border: 3px solid #281910; box-sizing: border-box; background: #281910; }
+        .face div { width: 100%; height: 100%; background-color: #4f3122; border: 1px solid rgba(0, 0, 0, 0.15); }
+        .top { transform: rotateX(90deg) translateZ(30px); }
+        .bottom { transform: rotateX(-90deg) translateZ(30px); }
+        .front { transform: rotateY(0deg) translateZ(30px); }
+        .back { transform: rotateY(180deg) translateZ(30px); }
+        .left { transform: rotateY(-90deg) translateZ(30px); }
+        .right { transform: rotateY(90deg) translateZ(30px); }
+        .face div:nth-child(3n) { filter: brightness(110%); }
+        .face div:nth-child(7n) { filter: brightness(80%); }
+
+        .container input:checked ~ .lamp-block .face { border-color: #5b3a24; filter: drop-shadow(0px 0px 25px rgba(255, 174, 66, 0.5)); }
+        .container input:checked ~ .lamp-block .face div { background-color: #e58d4a; border-color: rgba(255, 255, 255, 0.1); }
+        .container input:checked ~ .lamp-block .face div:nth-child(3n) { background-color: #f6b17a; }
+        .container input:checked ~ .lamp-block .face div:nth-child(7n) { background-color: #b56732; }
+        .container:hover .lamp-block { transform: rotateX(-30deg) rotateY(55deg); }
+        .container:active .lamp-block { transform: rotateX(-30deg) rotateY(45deg) scale(0.9); }
+        .container.hidden { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.3s ease, visibility 0.3s ease; }
+
+        /* Top-right translucent blur box (behind glow stone) */
+        .top-right-blur-parent{
+            position: fixed;
+            top: 0px;
+            right: 25px;
+            z-index: 9990; /* just behind the glow stone at 9999 */
+            background: rgba(255,255,255,0.06);
+            backdrop-filter: blur(12px) saturate(130%);
+            -webkit-backdrop-filter: blur(12px) saturate(130%);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
+            padding: 14px 12px;
+            min-width: 220px;
+            min-height: 56px;
+            color: #e6eefc;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+            font-size: 25px; font-weight: 700;
+            display: flex; align-items: center; gap: 12px; justify-content: center;
+            pointer-events: none; /* let glow stone handle pointer events above */
+        }
+
+        /* --- CANDLESTICK CHART BOX --- */
+        #chart-container {
+            position: fixed; bottom: 20px; left: 20px; z-index: 9998;
+            background: rgba(11, 14, 17, 0.2); backdrop-filter: blur(5px);
+            padding: 20px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        #chart-container.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+        /* --- CREATOR CREDIT --- */
+        #creator-credit {
+            position: fixed; bottom: 0; right: 0; z-index: 100;
+            background: #000000fb;
+            color: #fffde7;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'SF Pro Display', Inter, sans-serif;
+            font-size: 15px; font-weight: 500; letter-spacing: 0.2px;
+            padding: 20px 24px;
+            border-radius: 12px 0 0 0;
+            box-shadow: none;
+            pointer-events: none; user-select: none;
+            transition: opacity 0.3s ease;
+            display: flex; align-items: center; justify-content: flex-end;
+        }
+        #creator-credit:hover { opacity: 0.9; }
+
+        /* --- LIVE STOCKS MODAL PANEL --- */
+        #stocks-modal {
+            position: fixed; left: 50%; top: 50%;
+            width: 60%; height: 80%;
+            transform: translate(-50%, -50%) scale(0);
+            background: #1e1e24; /* Neumorphic dark background */
+            z-index: 25; display: none;
+            box-shadow: 12px 12px 24px #151519, -12px -12px 24px #27272f; /* Neumorphic shadow */
+            transition: transform 0.4s ease;
+            border: none;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        #stocks-modal.visible {
+            display: block;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        #stocks-modal-header {
+            position: sticky; top: 0;
+            background: #1e1e24;
+            padding: 20px 30px;
+            box-shadow: inset 0 -4px 6px -4px rgba(0, 0, 0, 0.4);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 26;
+        }
+
+        #stocks-modal-header h2 {
+            margin: 0;
+            font-size: 20px;
+            color: #eaf2ff;
+            letter-spacing: 1px;
+            text-shadow: 2px 2px 4px #151519, -2px -2px 4px #27272f;
+        }
+
+        #stocks-close-btn {
+            background: #1e1e24;
+            border: none;
+            color: #eaf2ff;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            box-shadow: 4px 4px 8px #151519, -4px -4px 8px #27272f;
+        }
+
+        #stocks-close-btn:hover {
+            color: #3ee0ff;
+            box-shadow: inset 4px 4px 8px #151519, inset -4px -4px 8px #27272f;
+        }
+
+        #stocks-content {
+            padding: 0; /* iframe will fill this area */
+            color: #eaf2ff;
+            height: calc(100% - 72px);
+        }
+
+        #stocks-content iframe {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* --- DARK OVERLAY FOR MODAL --- */
+        #modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5); z-index: 24; display: none;
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+
+        #modal-overlay.visible {
+            display: block;
+            opacity: 1;
+        }
+
+        /* --- CREATOR CREDIT --- */
+        #creator-credit {
+            position: fixed; bottom: 0; right: 0; z-index: 100;
+            background: #000000fb;
+            color: #fffde7;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'SF Pro Display', Inter, sans-serif;
+            font-size: 15px; font-weight: 500; letter-spacing: 0.2px;
+            padding: 20px 24px;
+            border-radius: 12px 0 0 0;
+            box-shadow: none;
+            pointer-events: none; user-select: none;
+            transition: opacity 0.3s ease;
+            display: flex; align-items: center; justify-content: flex-end;
+        }
+        #creator-credit:hover { opacity: 0.9; }
+
+        /* --- INFO BUTTON AND MODAL --- */
+        #info-btn {
+            position: fixed; top: 20px; left: 20px; width: 44px; height: 44px;
+            border-radius: 50%; background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.26); color: white;
+            font-size: 20px; font-family: serif; font-style: italic; font-weight: bold;
+            cursor: pointer; z-index: 9999; backdrop-filter: blur(5px);
+            display: flex; justify-content: center; align-items: center;
+            transition: all 0.3s ease;
+        }
+        #info-btn:hover { background: rgba(255,255,255,0.15); transform: scale(1.1); box-shadow: 0 0 15px rgba(255,255,255,0.2); }
+/* --- FIRST VISIT NOTICE --- */
+#first-visit-notice {
+    position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.384); color: #fff;
+    padding: 12px 24px; border-radius: 8px;
+    font-size: 1rem; font-family: 'Inter', sans-serif;
+    z-index: 10001; backdrop-filter: blur(6px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    opacity: 0; transition: opacity 0.3s ease;
+}
+#first-visit-notice.visible { opacity: 1; }
+
+        #info-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(12px);
+            z-index: 10000; display: flex; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+        }
+        #info-modal.visible { opacity: 1; pointer-events: all; }
+
+        .info-content {
+            background: rgba(15, 20, 25, 0.6); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px; padding: 40px; max-width: 650px; width: 90%;
+            color: #eaf2ff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            position: relative; transform: scale(0.95); transition: transform 0.3s ease;
+            max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+        #info-modal.visible .info-content { transform: scale(1); }
+
+        .info-content::-webkit-scrollbar { width: 8px; }
+        .info-content::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
+        .info-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+
+        .info-content h2 { margin-top: 0; color: #3ee0ff; text-align: center; font-size: 26px; margin-bottom: 30px; letter-spacing: 2px; }
+        .info-close { position: absolute; top: 20px; right: 25px; background: none; border: none; color: rgba(255,255,255,0.5); font-size: 28px; cursor: pointer; transition: color 0.2s; }
+        .info-close:hover { color: #ff5470; }
+        .char-info-block { margin-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; }
+        .char-info-block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .char-title { color: #2be08a; font-weight: 700; font-size: 18px; margin-bottom: 8px; display: block; letter-spacing: 0.5px; }
+        .char-desc { font-size: 15px; color: #bac4d1; line-height: 1.6; font-style: italic; margin: 0; }
+    </style>
+</head>
+<body>
+    <button id="info-btn">i</button>
+    <div id="first-visit-notice">cliiiiiiiiiiiiiiiiiick <span style="font-weight:bold;">i</span> btn to know about this page</div>
+<div id="info-modal">
+    <div class="info-content">
+        <button class="info-close" id="info-close-btn">×</button>
+        <h2>AI TRADING TEAM</h2>
+
+        <div class="char-info-block">
+            <span class="char-title">AXON AI – Central AI System</span>
+            <p class="char-desc">"The intelligent core of the trading platform that coordinates every AI agent, combines their analysis, and generates the final Buy, Sell, or Hold recommendation."</p>
+        </div>
+
+        <div class="char-info-block">
+            <span class="char-title">Luffy – Team Leader</span>
+            <p class="char-desc">"Leads the AI trading team, assigns tasks to each specialist, reviews their reports, and approves the final trading decision."</p>
+        </div>
+
+        <div class="char-info-block">
+            <span class="char-title">Nami – Budget Planner</span>
+            <p class="char-desc">"Plans investment budgets, manages capital allocation, controls spending limits, and ensures every trade fits the available funds."</p>
+        </div>
+
+        <div class="char-info-block">
+            <span class="char-title">Naruto – Live Market Analyst</span>
+            <p class="char-desc">"Monitors live stock prices, market movements, trading volume, and real-time trends to identify immediate trading opportunities."</p>
+        </div>
+
+        <div class="char-info-block">
+            <span class="char-title">Sasuke – Risk Manager & Data Expert</span>
+            <p class="char-desc">"Evaluates trade risk, calculates risk-to-reward ratios, recommends stop-loss levels, and helps protect the portfolio from unnecessary losses."</p>
+        </div>
+
+        <div class="char-info-block">
+            <span class="char-title">Sakura – Portfolio Builder & News Analyst</span>
+            <p class="char-desc">"Builds and optimizes investment portfolios by selecting the best asset combinations, maintaining diversification, and maximizing long-term growth."</p>
+        </div>
+    </div>
+</div>
+        <script>
+            (function(){
+                try {
+                    const key = 'app_seen_loading_v1';
+                    // If not seen before, mark seen and redirect to loading screen
+                    if (!localStorage.getItem(key)) {
+                        localStorage.setItem(key, '1');
+                        // Avoid redirecting if this file is already the loading page
+                        if (!/loading\.html$/.test(location.pathname)) {
+                            location.replace('loading.html');
+                        }
+                    }
+                } catch (e) {
+                    // ignore if storage is not available
+                }
+            })();
+        </script>
+    <div id="bg-sequence"></div>
+
+    <!-- Character transition video -->
+    <video id="char-video-transition" muted playsinline preload="auto" style="pointer-events: none;"></video>
+    
+    <!-- Character main loop video (hidden, preloaded) -->
+    <video id="char-video-main" muted playsinline preload="auto" loop style="pointer-events: none;"></video>
+    
+    <!-- Transparent overlay on top of videos -->
+    <div id="video-overlay"></div>
+    
+    <div id="char-image"></div>
+
+    <!-- Black transition screen used when returning from a character -->
+    <div id="character-name-box" class="hidden absolute top-4 right-4 bg-black/40 backdrop-blur-md border border-white/20 text-white px-3 py-1 rounded-lg text-sm glass"></div>
+
+    <!-- Back button: shown while viewing a character, click to return -->
+    <button id="back-button" type="button">BACK</button>
+
+    <!-- Creator credit -->
+    <div id="creator-credit">Created by Yash Tambade</div>
+
+    <!-- Invisible hover/click boxes placed over each character in the office scene.
+         Adjust the left/top/width/height % below if they don't line up exactly
+         with your background image once it's rendered full-screen. -->
+    <div class="char-hotspots" id="char-hotspots">
+        <div class="char-hotspot" data-char="axon"   data-name="Axon AI" style="left:33.5%;  top:47%; width:16%; height:18%;"></div>
+        <div class="char-hotspot" data-char="luffy"  data-name="Luffy"   style="left:0%;   top:40%; width:20%; height:28%;"></div>
+        <div class="char-hotspot" data-char="saske"  data-name="Sasuke"  style="left:48%;  top:41%; width:26%; height:30%;"></div>
+        <div class="char-hotspot" data-char="sakura" data-name="Sakura"  style="left:86%;  top:44%; width:15%; height:28%;"></div>
+        <div class="char-hotspot" data-char="nami"   data-name="Nami"    style="left:0%;   top:75%; width:25%; height:30%;"></div>
+        <div class="char-hotspot" data-char="naruto" data-name="Naruto"  style="left:64%;  top:70%; width:28%; height:30%;"></div>
+        
+        <!-- Live Stocks Box - Big invisible box with hover name tag -->
+        <div class="stocks-hotspot" data-name="Live Stocks" style="left:30%; top:5%; width:50%; height:35%;"></div>
+    </div>
+
+    <label class="container">
+        <input type="checkbox" id="theme-toggle" />
+        <div class="simple-text"></div>
+        <div class="lamp-block">
+            <div class="face top"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+            <div class="face bottom"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+            <div class="face front"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+            <div class="face back"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+            <div class="face left"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+            <div class="face right"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+        </div>
+    </label>
+
+    <!-- Top-right translucent blur box (parent, behind glow stone) -->
+    <div class="top-right-blur-parent" id="topRightBlurParent">Demo Trading <br>Simulation</div>
+
+    <!-- Modal overlay -->
+    <div id="modal-overlay"></div>
+
+    <!-- Live Stocks Modal Panel -->
+    <div id="stocks-modal">
+        <div id="stocks-modal-header">
+            <h2>📈 LIVE STOCKS</h2>
+            <button id="stocks-close-btn">✕</button>
+        </div>
+        <div id="stocks-content">
+            <!-- Embedded live dashboard centered in modal -->
+            <iframe id="stocks-iframe" src="" allowfullscreen sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // --- CHARACTER CLICK -> PLAY VIDEO -> SHOW IMAGE ---
+        const charVideoTransition = document.getElementById('char-video-transition');
+        const charVideoMain = document.getElementById('char-video-main');
+        const charImage = document.getElementById('char-image');
+        const videoOverlay = document.getElementById('video-overlay');
+        const hotspotsContainer = document.getElementById('char-hotspots');
+        const charHotspots = document.querySelectorAll('.char-hotspot');
+
+        const CHAR_FOLDER = 'models/transections/charectors';
+        const characters = {
+            axon:   { transition: `${CHAR_FOLDER}/robot.mp4`,   main: `${CHAR_FOLDER}/robot-main.mp4` },
+            luffy:  { transition: `${CHAR_FOLDER}/luffy.mp4`,  main: `${CHAR_FOLDER}/luffy-main.mp4` },
+            naruto: { transition: `${CHAR_FOLDER}/naruto.mp4`, main: `${CHAR_FOLDER}/naruto-main.mp4` },
+            sakura: { transition: `${CHAR_FOLDER}/sakura.mp4`, main: `${CHAR_FOLDER}/sakura-main.mp4` },
+            saske:  { transition: `${CHAR_FOLDER}/saske.mp4`,  main: `${CHAR_FOLDER}/saske-main.mp4` },
+            nami:   { transition: `${CHAR_FOLDER}/nami.mp4`,   main: `${CHAR_FOLDER}/nami-main.mp4` },
+        };
+        // Friendly display names for each character
+        const characterNames = {
+            axon: 'Axon AI',
+            luffy: 'Luffy',
+            naruto: 'Naruto',
+            sakura: 'Sakura',
+            saske: 'Saske',
+            nami: 'Nami',
+        };
+
+        const blackTransition = document.getElementById('black-transition');
+        const backButton = document.getElementById('back-button');
+        const glowStoneContainer = document.querySelector('.container');
+        const chartContainer = document.getElementById('chart-container');
+        let currentCharacter = null;
+        let onTransitionEndListener = null;
+
+        // Preload all character videos into cache
+        const videoCache = {};
+        function preloadCharacterVideos() {
+            Object.keys(characters).forEach(charName => {
+                const char = characters[charName];
+                
+                // Create video for transition
+                const transitionVid = document.createElement('video');
+                transitionVid.src = char.transition;
+                transitionVid.preload = 'auto';
+                videoCache[`${charName}-transition`] = transitionVid;
+                
+                // Create video for main loop
+                const mainVid = document.createElement('video');
+                mainVid.src = char.main;
+                mainVid.preload = 'auto';
+                mainVid.loop = true;
+                videoCache[`${charName}-main`] = mainVid;
+            });
+        }
+
+        function playCharacter(characterName) {
+            const char = characters[characterName];
+            if (!char) return;
+
+            currentCharacter = characterName;
+            // Show character name box during transition
+            const nameBox = document.getElementById('character-name-box');
+            if (nameBox) {
+                nameBox.textContent = characterNames[characterName] || characterName;
+                nameBox.classList.remove('hidden');
+            }
+
+            // Stop any currently playing video
+            charVideoTransition.pause();
+            charVideoMain.pause();
+            charVideoTransition.currentTime = 0;
+            charVideoMain.currentTime = 0;
+
+            // Remove old event listener if it exists
+            if (onTransitionEndListener) {
+                charVideoTransition.removeEventListener('ended', onTransitionEndListener);
+            }
+
+            // Hide ALL character hotspot boxes and add character-active class
+            charHotspots.forEach(hotspot => {
+                hotspot.style.display = 'none';
+            });
+            hotspotsContainer.classList.add('character-active');
+
+            // Hide glow stone and chart container
+            glowStoneContainer.classList.add('hidden');
+            if (chartContainer) chartContainer.classList.add('hidden');
+
+            // Show the back button
+            backButton.classList.add('visible');
+
+            // Hide still image, show transition video and overlay
+            charImage.style.display = 'none';
+            charVideoTransition.classList.add('visible');
+            charVideoMain.classList.remove('visible');
+            videoOverlay.classList.add('visible');
+
+            // Set transition video source
+            charVideoTransition.src = char.transition;
+            charVideoTransition.loop = false;
+            charVideoTransition.currentTime = 0;
+
+            // Preload main video into second element
+            charVideoMain.src = char.main;
+            charVideoMain.loop = true;
+            charVideoMain.currentTime = 0;
+
+            // Play transition video
+            charVideoTransition.play().catch(() => {});
+
+            // Create new event listener for seamless switch
+            onTransitionEndListener = () => {
+                // Hide name box when transition finishes
+                const nameBox = document.getElementById('character-name-box');
+                if (nameBox) nameBox.classList.add('hidden');
+                // Use requestAnimationFrame to ensure synchronization
+                requestAnimationFrame(() => {
+                    // Map internal character keys to folder names when they differ
+                    const redirectMap = { axon: 'robot', luffy: 'luffy', naruto: 'naruto', sakura: 'sakura', saske: 'saske', nami: 'nami' };
+                    const target = redirectMap[currentCharacter];
+
+                    if (target) {
+                        // Navigate to the character HTML page immediately
+                        // Let the transition video freeze on its final frame while the browser loads the new page
+                        window.location.href = `charectors-html/${target}/index.html`;
+                        return;
+                    }
+
+                    charVideoTransition.classList.remove('visible');
+                    charVideoMain.classList.add('visible');
+                    charVideoMain.play().catch(() => {});
+                });
+            };
+
+            charVideoTransition.addEventListener('ended', onTransitionEndListener, { once: true });
+        }
+
+        // Attach click handlers to hotspots
+        charHotspots.forEach(spot => {
+            spot.addEventListener('click', () => playCharacter(spot.dataset.char));
+        });
+
+        // Live Stocks Modal Handler
+        const stocksHotspot = document.querySelector('.stocks-hotspot');
+        const stocksModal = document.getElementById('stocks-modal');
+        const modalOverlay = document.getElementById('modal-overlay');
+        const stocksCloseBtn = document.getElementById('stocks-close-btn');
+
+        function openStocksModal() {
+            // load the live dashboard into the modal iframe and show modal
+            const iframe = document.getElementById('stocks-iframe');
+            if (iframe) {
+                iframe.src = 'charectors-html/live/index.html';
+            }
+            stocksModal.classList.add('visible');
+            modalOverlay.classList.add('visible');
+            document.body.style.overflow = 'hidden';
+            updateMarketStatusDisplay();
+            fetchMainLiveStocks(); // still fetch summary data if desired
+        }
+
+        async function fetchMainLiveStocks() {
+            const FINNHUB_API_KEY = 'd95omohr01qmvpo9u0p0d95omohr01qmvpo9u0pg';
+            const symbols = ['SPY', 'AAPL', 'TSLA'];
+
+            for (const sym of symbols) {
+                try {
+                    const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_API_KEY}`);
+                    if (!res.ok) continue;
+                    const data = await res.json();
+
+                    document.getElementById(`main-${sym.toLowerCase()}-price`).innerText = `$${data.c.toFixed(2)}`;
+                    const changeEl = document.getElementById(`main-${sym.toLowerCase()}-change`);
+                    changeEl.innerText = `${data.d > 0 ? '+' : ''}${data.d.toFixed(2)} (${data.dp.toFixed(2)}%)`;
+                    changeEl.style.color = data.d >= 0 ? '#2be08a' : '#ff5470';
+                } catch(e) {
+                    console.error(`Failed to fetch ${sym}`, e);
+                }
+            }
+        }
+
+        function closeStocksModal() {
+            stocksModal.classList.remove('visible');
+            modalOverlay.classList.remove('visible');
+            document.body.style.overflow = 'auto';
+            // clear iframe to stop any running scripts/media
+            const iframe = document.getElementById('stocks-iframe');
+            if (iframe) iframe.src = '';
+        }
+
+        function checkMarketStatus() {
+            const now = new Date();
+            const day = now.getDay();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const timeInMinutes = hours * 60 + minutes;
+            
+            // Market open: Mon-Fri, 9:30 AM to 4:00 PM
+            const isWeekday = day >= 1 && day <= 5;
+            const isOpen = isWeekday && timeInMinutes >= 570 && timeInMinutes < 960;
+            
+            return isOpen;
+        }
+
+        function updateMarketStatusDisplay() {
+            const statusEl = document.getElementById('market-status');
+            const timeEl = document.getElementById('current-time');
+            
+            const now = new Date();
+            const isOpen = checkMarketStatus();
+            
+            if (isOpen) {
+                statusEl.textContent = '🟢 MARKET OPEN';
+                statusEl.style.color = '#2be08a';
+            } else {
+                statusEl.textContent = '🔴 MARKET CLOSED';
+                statusEl.style.color = '#ff5470';
+            }
+            
+            const timeStr = now.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            timeEl.textContent = timeStr;
+        }
+
+        stocksHotspot.addEventListener('click', openStocksModal);
+        stocksCloseBtn.addEventListener('click', closeStocksModal);
+        modalOverlay.addEventListener('click', closeStocksModal);
+
+        // Update market status every second when modal is open
+        setInterval(() => {
+            if (stocksModal.classList.contains('visible')) {
+                updateMarketStatusDisplay();
+            }
+        }, 1000);
+
+        // Back button: reset the character view immediately so the scene returns
+        // with a black transition fade.
+        backButton.addEventListener('click', () => {
+            blackTransition.classList.add('active');
+            
+            setTimeout(() => {
+                // Stop both character videos
+                charVideoTransition.pause();
+                charVideoMain.pause();
+                charVideoTransition.currentTime = 0;
+                charVideoMain.currentTime = 0;
+                charVideoTransition.classList.remove('visible');
+                charVideoMain.classList.remove('visible');
+                videoOverlay.classList.remove('visible');
+
+                // Hide still image
+                charImage.style.display = 'none';
+                charImage.style.backgroundImage = '';
+
+                // Remove event listener
+                if (onTransitionEndListener) {
+                    charVideoTransition.removeEventListener('ended', onTransitionEndListener);
+                    onTransitionEndListener = null;
+                }
+
+                currentCharacter = null;
+
+                // Remove character-active class and show hotspots
+                hotspotsContainer.classList.remove('character-active');
+                charHotspots.forEach(hotspot => {
+                    hotspot.style.display = '';
+                });
+
+                // Show glow stone and chart container again
+                glowStoneContainer.classList.remove('hidden');
+                if (chartContainer) chartContainer.classList.remove('hidden');
+
+                // Hide the back button
+                backButton.classList.remove('visible');
+                
+                // Fade back from black
+                blackTransition.classList.remove('active');
+            }, 400); // Wait for transition fade
+        });
+
+        // Preload all videos on page load
+        preloadCharacterVideos();
+
+        const bgContainer = document.getElementById('bg-sequence');
+        const toggle = document.getElementById('theme-toggle');
+        // Flags to ensure one-time zoom effects per Night activation
+        let nightZoomClicked = false;
+        let nightZoomOutDone = false;
+        let isZooming = false;
+        let rafId = null;
+        let currentMode = 'Day';
+        let sequenceFrame = 1;
+        let lastFrameTime = 0;
+        const frameMs = 1000 / 24;
+        const frameCounts = { Day: 118, Night: 150, Transition: 175 };
+        const cache = { Day: [], Night: [], Transition: [] };
+
+        function updateHotspotVisibility() {
+            hotspotsContainer.classList.toggle('hidden-night', toggle.checked);
+        }
+        updateHotspotVisibility();
+
+        function setSequenceFrame(mode, frameIndex) {
+            const frameImage = cache[mode]?.[frameIndex - 1];
+            if (frameImage?.src) {
+                bgContainer.style.backgroundImage = `url('${frameImage.src}')`;
+            }
+        }
+
+        function preloadMode(mode) {
+            const path = mode === 'Transition' ? 'models/transections/main-trasection' : `models/${mode}/main`;
+            cache[mode] = [];
+
+            return Promise.all(Array.from({ length: frameCounts[mode] }, (_, index) => {
+                return new Promise(resolve => {
+                    const img = new Image();
+                    img.onload = () => resolve();
+                    img.onerror = () => resolve();
+                    img.src = `${path}/${(index + 1).toString().padStart(4, '0')}.jpg`;
+                    cache[mode][index] = img;
+                });
+            }));
+        }
+
+        function preload() {
+            return Promise.all([
+                preloadMode('Day'),
+                preloadMode('Night'),
+                preloadMode('Transition')
+            ]);
+        }
+
+        function stopSequence() {
+            if (rafId) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+        }
+
+        function playSequence(mode, loop = true) {
+            stopSequence();
+            sequenceFrame = 1;
+            lastFrameTime = 0;
+            const maxFrames = frameCounts[mode];
+
+            const tick = (timestamp) => {
+                if (!lastFrameTime) lastFrameTime = timestamp;
+                const elapsed = timestamp - lastFrameTime;
+
+                if (elapsed >= frameMs) {
+                    setSequenceFrame(mode, sequenceFrame);
+
+                    if (mode === 'Night' && sequenceFrame === 1 && !nightZoomOutDone) {
+                        nightZoomOutDone = true;
+                        isZooming = true;
+                        bgContainer.style.transition = 'transform 0.8s ease-out';
+                        bgContainer.style.transform = 'scale(1.5)';
+                        setTimeout(() => {
+                            bgContainer.style.transform = 'scale(1)';
+                            isZooming = false;
+                        }, 50);
+                    } else if (!isZooming) {
+                        bgContainer.style.transform = 'scale(1)';
+                    }
+
+                    if (sequenceFrame >= maxFrames) {
+                        if (loop) {
+                            sequenceFrame = 1;
+                        } else {
+                            stopSequence();
+                            return;
+                        }
+                    } else {
+                        sequenceFrame++;
+                    }
+
+                    lastFrameTime = timestamp;
+                }
+
+                rafId = requestAnimationFrame(tick);
+            };
+
+            setSequenceFrame(mode, sequenceFrame);
+            rafId = requestAnimationFrame(tick);
+        }
+
+        function playTransition(nextMode) {
+            stopSequence();
+            const reverse = currentMode === 'Night';
+            let transitionFrame = reverse ? frameCounts.Transition : 1;
+            const step = reverse ? -1 : 1;
+            const maxFrames = frameCounts.Transition;
+            let lastTransitionTime = 0;
+
+            const tick = (timestamp) => {
+                if (!lastTransitionTime) lastTransitionTime = timestamp;
+                const elapsed = timestamp - lastTransitionTime;
+
+                if (elapsed >= frameMs) {
+                    setSequenceFrame('Transition', transitionFrame);
+
+                    if (reverse ? transitionFrame <= 1 : transitionFrame >= maxFrames) {
+                        currentMode = nextMode;
+                        if (currentMode === 'Night') {
+                            nightZoomClicked = false;
+                        }
+                        playSequence(currentMode);
+                        return;
+                    }
+
+                    transitionFrame += step;
+                    lastTransitionTime = timestamp;
+                }
+
+                rafId = requestAnimationFrame(tick);
+            };
+
+            setSequenceFrame('Transition', transitionFrame);
+            rafId = requestAnimationFrame(tick);
+        }
+
+        // --- INFO MODAL HANDLERS ---
+        const infoBtn = document.getElementById('info-btn');
+        const infoModal = document.getElementById('info-modal');
+        const infoCloseBtn = document.getElementById('info-close-btn');
+        const firstNotice = document.getElementById('first-visit-notice');
+        
+        // Show modal on i button click
+        infoBtn.addEventListener('click', () => {
+            infoModal.classList.add('visible');
+            // Hide first visit notice if visible
+            if (firstNotice) firstNotice.classList.remove('visible');
+        });
+        
+        // Close modal
+        infoCloseBtn.addEventListener('click', () => {
+            infoModal.classList.remove('visible');
+        });
+        infoModal.addEventListener('click', (e) => {
+            if (e.target === infoModal) {
+                infoModal.classList.remove('visible');
+            }
+        });
+        
+        // First‑visit notification logic
+        if (!sessionStorage.getItem('firstVisitNoticeShown')) {
+            if (firstNotice) {
+                firstNotice.classList.add('visible');
+                // Auto hide after 8 seconds
+                setTimeout(() => {
+                    firstNotice.classList.remove('visible');
+                }, 8000);
+                sessionStorage.setItem('firstVisitNoticeShown', 'true');
+            }
+        }
+        
+        preload().then(() => {
+            playSequence('Day');
+        }).catch(() => {
+            playSequence('Day');
+        });
+
+        toggle.addEventListener('change', () => {
+            const nextMode = toggle.checked ? 'Night' : 'Day';
+            updateHotspotVisibility();
+            toggle.disabled = true;
+            playTransition(nextMode);
+            setTimeout(() => {
+                toggle.disabled = false;
+                currentMode = nextMode;
+                if (currentMode === 'Night') {
+                    nightZoomClicked = false;
+                }
+            }, (1000 / 24) * frameCounts.Transition);
+        });
+
+        // Zoom in on click when Night mode active
+        // Zoom in on click when Night mode active (once per Night activation)
+        toggle.addEventListener('click', () => {
+            if (currentMode === 'Night' && !nightZoomClicked) {
+                nightZoomClicked = true;
+                isZooming = true;
+                bgContainer.style.transition = 'transform 0.5s ease-out';
+                bgContainer.style.transform = 'scale(1.3)';
+                setTimeout(() => {
+                    bgContainer.style.transform = 'scale(1)';
+                    isZooming = false;
+                }, 800);
+            }
+        });
+    // Auto‑enter fullscreen on page load (like F11)
+    document.addEventListener('DOMContentLoaded', () => {
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().catch(() => {});
+        } else if (document.documentElement.webkitRequestFullscreen) {
+            document.documentElement.webkitRequestFullscreen();
+        }
+    });
+    </script>
+</body>
+</html>
