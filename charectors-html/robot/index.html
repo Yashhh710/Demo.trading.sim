@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="https://img.icons8.com/?size=100&id=9inONWn9EvfI&format=png&color=000000" type="image/x-icon">
+    <title>Axon | Robot chat bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        
+        /* --- BACK BUTTON (premium cinematic edge fade) --- */
+        #back-button {
+            position: fixed; left: 0; bottom: 40px; z-index: 30;
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.7) 80px, rgba(0, 0, 0, 0.3) 200px, rgba(0, 0, 0, 0) 400px);
+            color: #ffffff; border: none; outline: none; box-shadow: none;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; 
+            font-size: 14px; font-weight: 500; letter-spacing: 0.5px;
+            padding: 0; margin: 0; width: 450px; height: 50px;
+            display: flex; opacity: 1; transition: opacity 0.3s ease;
+            cursor: pointer; align-items: center; justify-content: flex-start;
+            padding-left: 40px; gap: 10px;
+            background-attachment: fixed;
+            text-decoration: none;
+        }
+        #back-button::before {
+            content: '← '; font-size: 18px; font-weight: 300; display: inline;
+        }
+        #back-button:hover { background: linear-gradient(90deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.75) 80px, rgba(0, 0, 0, 0.35) 200px, rgba(0, 0, 0, 0) 400px); }
+        #back-button:active { opacity: 0.85; }
+
+        /* --- CREATOR CREDIT --- */
+        #creator-credit {
+            position: fixed; bottom: 0; right: 0; z-index: 100;
+            background: #000000fb;
+            color: #fffde7;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'SF Pro Display', Inter, sans-serif;
+            font-size: 15px; font-weight: 500; letter-spacing: 0.2px;
+            padding: 20px 24px;
+            border-radius: 12px 0 0 0;
+            box-shadow: none;
+            pointer-events: none; user-select: none;
+            transition: opacity 0.3s ease;
+            display: flex; align-items: center; justify-content: flex-end;
+        }
+        #creator-credit:hover { opacity: 0.9; }
+        /* --- BLACK TRANSITION SCREEN --- */
+        #black-transition {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 2000; opacity: 0; pointer-events: none; transition: opacity .4s ease;
+        }
+        #black-transition.active { opacity: 1; pointer-events: none; }
+
+        /* Hide scrollbar for the chat container */
+        #chat-container::-webkit-scrollbar {
+            display: none !important;
+        }
+        #chat-container {
+            -ms-overflow-style: none !important;  /* IE and Edge */
+            scrollbar-width: none !important;  /* Firefox */
+        }
+        
+    
+        /* --- ENTRY ANIMATIONS --- */
+        @keyframes fadeInUp {
+            0% { opacity: 0; transform: translateY(40px) scale(0.98); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-fade-in {
+            animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+            opacity: 0;
+        }
+        .delay-100 { animation-delay: 100ms; }
+        .delay-200 { animation-delay: 200ms; }
+        .delay-300 { animation-delay: 300ms; }
+
+    </style>
+    
+</head>
+<body class="bg-black text-white">
+    <div id="black-transition"></div>
+
+    <!-- Background Video -->
+    <video autoplay loop muted playsinline class="fixed top-0 left-0 w-full h-full object-cover -z-20" style="pointer-events: none;">
+        <source src="robot-main.mp4" type="video/mp4">
+    </video>
+
+    <!-- Back Button -->
+    <button id="back-button">BACK</button>
+
+    <!-- Creator Credit -->
+    <div id="creator-credit">Created by Yash Tambade</div>
+
+    <!-- Dashboard UI Container -->
+    <div class="relative z-20 w-full h-screen p-8 flex justify-between items-center pointer-events-auto">
+        
+        <!-- Left Sidebar (Updated for larger size) -->
+        <div class="glass w-[450px] h-[75vh] p-6 rounded-3xl flex flex-col gap-4 border-white animate-fade-in delay-100">
+            <h2 class="text-xl font-bold text-cyan-400">AI Assistant</h2>
+            <div id="chat-container" class="flex-1 overflow-y-auto bg-black/30 rounded-xl p-4 text-sm flex flex-col gap-3 no-scrollbar scroll-smooth">
+                <div class="text-cyan-300"><strong class="text-cyan-400">AXON:</strong> Hello! I am AXON. How can I help you today?</div>
+            </div>
+            <button id="new-chat-btn" class="bg-cyan-900/50 hover:bg-cyan-800 p-2 rounded-lg transition-colors mt-auto">New Chat</button>
+        </div>
+
+        <!-- Right Sidebar (Static Dummy Data) -->
+        <div class="glass w-[400px] p-6 rounded-3xl flex flex-col gap-4 border-white animate-fade-in delay-200">
+            <!-- Market & Portfolio Summary Grid -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-black/30 p-4 rounded-xl">
+                    <h3 class="text-xs text-gray-400">Market (SPY)</h3>
+                    <p class="text-lg font-bold" id="spy-price">$751.71</p>
+                    <span class="text-sm text-green-400 font-medium" id="spy-change">+6.31 (0.85%)</span>
+                </div>
+                <div class="bg-black/30 p-4 rounded-xl">
+                    <h3 class="text-xs text-gray-400">Apple (AAPL)</h3>
+                    <p class="text-lg font-bold" id="aapl-price">$316.22</p>
+                    <span class="text-sm text-green-400 font-medium" id="aapl-change">+2.83 (0.90%)</span>
+                </div>
+            </div>
+
+            <!-- AI Confidence Section -->
+            <div class="bg-black/30 p-4 rounded-xl flex items-center justify-between">
+                <div>
+                    <h3 class="text-xs text-gray-400">AI Confidence</h3>
+                    <p class="text-2xl font-bold text-cyan-400">96%</p>
+                </div>
+                <div class="w-12 h-12 border-4 border-cyan-500 rounded-full border-t-transparent animate-spin"></div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div>
+                <h3 class="text-sm font-semibold mb-2">Quick Actions</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button data-action="analyze_market" class="quick-action bg-white/10 hover:bg-white/20 p-2 rounded-lg text-xs">Analyze Market</button>
+                    <button data-action="portfolio_review" class="quick-action bg-white/10 hover:bg-white/20 p-2 rounded-lg text-xs">Portfolio Review</button>
+                    <button data-action="risk_analysis" class="quick-action bg-white/10 hover:bg-white/20 p-2 rounded-lg text-xs">Risk Analysis</button>
+                    <button data-action="investment_planner" class="quick-action bg-white/10 hover:bg-white/20 p-2 rounded-lg text-xs">Investment Planner</button>
+                </div>
+            </div>
+
+            <!-- Recent Recommendations -->
+            <div class="bg-black/30 p-4 rounded-xl">
+                <h3 class="text-xs text-gray-400 mb-2">Recent AI Recommendations</h3>
+                <p class="text-xs">Recommends aggressive positioning on Tech Indices.</p>
+            </div>
+        </div>
+
+        <!-- Bottom Input Bar -->
+        <div class="absolute bottom-10 left-1/4 -translate-x-1/2 w-1/2 glass rounded-full p-2 flex items-center border-white animate-fade-in delay-300">
+            <input type="text" id="chat-input" placeholder="Ask AXON anything..." class="bg-transparent flex-1 px-4 outline-none text-white placeholder-gray-400">
+            <button id="send-btn" class="bg-cyan-500 hover:bg-cyan-400 transition-colors px-6 py-2 rounded-full text-sm font-semibold text-black">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const backButton = document.getElementById('back-button');
+        const blackTransition = document.getElementById('black-transition');
+
+        backButton.addEventListener('click', () => {
+            blackTransition.classList.add('active');
+            setTimeout(() => {
+                window.location.href = '../../index.html';
+            }, 400);
+        });
+
+        // --- Chat Bot Logic ---
+        const chatContainer = document.getElementById('chat-container');
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const newChatBtn = document.getElementById('new-chat-btn');
+
+        const GROQ_API_KEY = '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';
+
+        let baseSystemPrompt = `You are AXON, an advanced AI assistant. Always answer the user's questions clearly and keep your replies very short and to the point (1-2 sentences maximum).`;
+
+        let chatHistory = [
+            { role: "system", content: baseSystemPrompt }
+        ];
+
+        function addMessage(role, content) {
+            const msgDiv = document.createElement('div');
+            if (role === 'user') {
+                msgDiv.className = "text-white self-end bg-white/10 rounded-lg p-3 max-w-[90%] shadow-lg border border-white/5";
+                msgDiv.innerHTML = `<strong class="text-gray-300">You:</strong> ${content}`;
+            } else {
+                msgDiv.className = "text-cyan-300 self-start w-full";
+                let formattedContent = content.replace(/\*\*(.*?)\*\*/g, '<strong class="text-cyan-100">$1</strong>');
+                msgDiv.innerHTML = `<strong class="text-cyan-400">AXON:</strong> <div class="bg-black/40 p-3 rounded-lg mt-1 inline-block border border-white/5">${formattedContent}</div>`;
+            }
+            chatContainer.appendChild(msgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const userText = chatInput.value.trim();
+            if (!userText) return;
+
+            addMessage('user', userText);
+            chatInput.value = '';
+            chatInput.disabled = true;
+            sendBtn.disabled = true;
+            sendBtn.innerText = 'Analyzing...';
+
+            chatHistory.push({ role: "user", content: userText });
+
+            try {
+                sendBtn.innerText = 'Generating response...';
+                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${GROQ_API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: "llama-3.1-8b-instant",
+                        messages: chatHistory,
+                        temperature: 0.3,
+                        max_tokens: 1500
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.text();
+                    throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorData}`);
+                }
+
+                const data = await response.json();
+                const aiMsg = (data.choices[0].message.content || '').trim();
+
+                if (!aiMsg) {
+                    addMessage('assistant', "Sorry, I couldn't quite finish that thought — could you ask again, maybe a bit more specifically?");
+                } else {
+                    chatHistory.push({ role: "assistant", content: aiMsg });
+                    addMessage('assistant', aiMsg);
+                }
+
+            } catch (error) {
+                console.error('Chat error:', error);
+                addMessage('assistant', `Oops! Something went wrong: ${error.message}`);
+            } finally {
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+                sendBtn.innerText = 'Send';
+                chatInput.focus();
+            }
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        newChatBtn.addEventListener('click', () => {
+            chatContainer.innerHTML = '<div class="text-cyan-300"><strong class="text-cyan-400">AXON:</strong> Hello! I am AXON. How can I help you today?</div>';
+            chatHistory = [
+                { role: "system", content: baseSystemPrompt }
+            ];
+        });
+
+        // Quick Actions: attach handlers to preset buttons
+        function handleQuickAction(action) {
+            const mapping = {
+                analyze_market: 'Analyze the current US market and provide a concise market overview and top 3 trading ideas.',
+                portfolio_review: 'Review my portfolio for risk, diversification, and suggestions for improvement.',
+                risk_analysis: 'Perform a risk analysis for a technology-heavy portfolio and list top 3 mitigation steps.',
+                investment_planner: 'Create a brief investment planner for a 6-month horizon with moderate risk (amount: $10,000).'
+            };
+            const prompt = mapping[action] || "Please provide an overview.";
+            chatInput.value = prompt;
+            sendMessage();
+        }
+
+        // Attach click listeners to Quick Action buttons
+        document.querySelectorAll('.quick-action').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const action = btn.getAttribute('data-action');
+                try { handleQuickAction(action); } catch (err) { console.error('Quick action failed', err); }
+            });
+        });
+
+    </script>
+</body>
+</html>
